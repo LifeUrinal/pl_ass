@@ -13,6 +13,7 @@ import {
   toFaktureringsplanRowsLong,
   toInnkjopRows,
   toProsjektinfoRows,
+  tryParseBetalingsplanPivot,
   tryParseFaktureringsplanWide,
 } from '../lib/parsers/transform'
 import type { FaktureringsplanRad } from '../types'
@@ -67,7 +68,8 @@ export default function UploadGate({ dataset, onFileImported, onContinue }: Prop
       }
 
       if (key === 'faktureringsplan') {
-        const wide = tryParseFaktureringsplanWide(sheet)
+        const pivot = tryParseBetalingsplanPivot(sheet)
+        const wide = pivot && pivot.length > 0 ? pivot : tryParseFaktureringsplanWide(sheet)
         if (wide && wide.length > 0) {
           setPendingWide({ key, rows: wide, sheet, meta })
           setBusy(null)

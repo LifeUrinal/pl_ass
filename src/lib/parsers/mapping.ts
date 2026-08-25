@@ -147,8 +147,9 @@ export function toIsoMonth(d: Date | null): string | undefined {
   return `${y}-${m}`
 }
 
-/** Prøver å tolke en kolonneoverskrift som en måned/dato-etikett (for "bred" faktureringsplan). */
-export function parseMonthHeader(header: string): string | null {
+/** Prøver å tolke en kolonneoverskrift (tekst, tall eller Date-celle) som en måned/dato-etikett. */
+export function parseMonthHeader(header: unknown): string | null {
+  if (typeof header === 'string' && !header.trim()) return null
   const d = coerceDate(header)
   if (!d) return null
   return toIsoMonth(d) ?? null

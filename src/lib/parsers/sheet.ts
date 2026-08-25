@@ -5,6 +5,8 @@ export interface ParsedSheet {
   sheetName: string
   headers: string[]
   rows: Record<string, unknown>[]
+  /** Rå cellematrise (rad for rad, som i regnearket), til bruk for ark med flere overskriftsrader. */
+  matrix: unknown[][]
 }
 
 export interface ParsedWorkbook {
@@ -44,7 +46,7 @@ export async function parseWorkbookFile(file: File): Promise<ParsedWorkbook> {
         return obj
       })
 
-    return { sheetName, headers: headerRow.filter(Boolean), rows }
+    return { sheetName, headers: headerRow.filter(Boolean), rows, matrix }
   })
 
   return { fileName: file.name, sizeBytes: file.size, sheets }
