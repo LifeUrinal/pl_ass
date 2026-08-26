@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react'
 import { REQUIRED_FILES } from '../types'
 import type { ProjectDataSet, RawUploadedFile, RequiredFileKey } from '../types'
-import { parseWorkbookFile, pickLargestSheet } from '../lib/parsers/sheet'
-import type { ParsedSheet } from '../lib/parsers/sheet'
+import { buildParsedSheet, guessHeaderRowIndex, parseWorkbookFile, pickLargestSheetIndex } from '../lib/parsers/sheet'
+import type { ParsedSheet, ParsedWorkbook } from '../lib/parsers/sheet'
 import { autoMapHeaders } from '../lib/parsers/mapping'
 import type { ColumnMapping } from '../lib/parsers/mapping'
 import { FIELD_SPECS } from '../lib/parsers/fieldSpecs'
@@ -17,6 +17,7 @@ import {
   tryParseFaktureringsplanWide,
 } from '../lib/parsers/transform'
 import type { FaktureringsplanRad } from '../types'
+import SheetHeaderPicker from './SheetHeaderPicker'
 import ColumnMappingModal from './ColumnMappingModal'
 import WidePlanPreview from './WidePlanPreview'
 
@@ -26,21 +27,36 @@ interface Props {
   onContinue: () => void
 }
 
+type PendingSheetPick = {
+  key: RequiredFileKey
+  workbook: ParsedWorkbook
+  meta: RawUploadedFile
+  sheetIndex: number
+  headerRowIndex: number
+}
+
 type PendingMapping = {
   key: RequiredFileKey
+  workbook: ParsedWorkbook
   sheet: ParsedSheet
+  sheetIndex: number
+  headerRowIndex: number
   mapping: ColumnMapping
   meta: RawUploadedFile
 }
 
 type PendingWide = {
   key: RequiredFileKey
+  workbook: ParsedWorkbook
   rows: FaktureringsplanRad[]
   sheet: ParsedSheet
+  sheetIndex: number
+  headerRowIndex: number
   meta: RawUploadedFile
 }
 
 export default function UploadGate({ dataset, onFileImported, onContinue }: Props) {
+  const [pendingSheetPick, setPendingSheetPick] = useState<PendingSheetPick | null>(null)
   const [pendingMapping, setPendingMapping] = useState<PendingMapping | null>(null)
   const [pendingWide, setPendingWide] = useState<PendingWide | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -53,38 +69,47 @@ export default function UploadGate({ dataset, onFileImported, onContinue }: Prop
     setBusy(key)
     setErrors((e) => ({ ...e, [key]: '' }))
     try {
-      const wb = await parseWorkbookFile(file)
-      const sheet = pickLargestSheet(wb)
-      const meta: RawUploadedFile = {
-        name: wb.fileName,
-        sizeBytes: wb.sizeBytes,
-        uploadedAt: new Date().toISOString(),
-        sheetNames: wb.sheets.map((s) => s.sheetName),
-      }
-      if (sheet.rows.length === 0) {
-        setErrors((e) => ({ ...e, [key]: 'Fant ingen datarader i filen. Sjekk at riktig ark og format er brukt.' }))
+      const workbook = await parseWorkbookFile(file)
+      if (workbook.sheets.every((s) => s.matrix.length === 0)) {
+        setErrors((e) => ({ ...e, [key]: 'Fant ingen data i filen.' }))
         setBusy(null)
         return
       }
-
-      if (key === 'faktureringsplan') {
-        const pivot = tryParseBetalingsplanPivot(sheet)
-        const wide = pivot && pivot.length > 0 ? pivot : tryParseFaktureringsplanWide(sheet)
-        if (wide && wide.length > 0) {
-          setPendingWide({ key, rows: wide, sheet, meta })
-          setBusy(null)
-          return
-        }
+      const meta: RawUploadedFile = {
+        name: workbook.fileName,
+        sizeBytes: workbook.sizeBytes,
+        uploadedAt: new Date().toISOString(),
+        sheetNames: workbook.sheets.map((s) => s.sheetName),
       }
-
-      const fields = FIELD_SPECS[key]
-      const mapping = autoMapHeaders(sheet.headers, fields)
-      setPendingMapping({ key, sheet, mapping, meta })
+      const sheetIndex = pickLargestSheetIndex(workbook)
+      const headerRowIndex = guessHeaderRowIndex(workbook.sheets[sheetIndex].matrix)
+      setPendingSheetPick({ key, workbook, meta, sheetIndex, headerRowIndex })
     } catch (err) {
       setErrors((e) => ({ ...e, [key]: `Klarte ikke å lese filen: ${(err as Error).message}` }))
     } finally {
       setBusy(null)
     }
+  }
+
+  function confirmSheetPick(sheetIndex: number, headerRowIndex: number) {
+    if (!pendingSheetPick) return
+    const { key, workbook, meta } = pendingSheetPick
+    const rawSheet = workbook.sheets[sheetIndex]
+    const sheet = buildParsedSheet(rawSheet.sheetName, rawSheet.matrix, headerRowIndex)
+    setPendingSheetPick(null)
+
+    if (key === 'faktureringsplan') {
+      const pivot = tryParseBetalingsplanPivot(sheet)
+      const wide = pivot && pivot.length > 0 ? pivot : tryParseFaktureringsplanWide(sheet)
+      if (wide && wide.length > 0) {
+        setPendingWide({ key, workbook, rows: wide, sheet, sheetIndex, headerRowIndex, meta })
+        return
+      }
+    }
+
+    const fields = FIELD_SPECS[key]
+    const mapping = autoMapHeaders(sheet.headers, fields)
+    setPendingMapping({ key, workbook, sheet, sheetIndex, headerRowIndex, mapping, meta })
   }
 
   function confirmMapping(mapping: ColumnMapping) {
@@ -103,11 +128,25 @@ export default function UploadGate({ dataset, onFileImported, onContinue }: Prop
 
   function switchWideToManual() {
     if (!pendingWide) return
-    const { key, sheet, meta } = pendingWide
+    const { key, workbook, sheet, sheetIndex, headerRowIndex, meta } = pendingWide
     const fields = FIELD_SPECS[key]
     const mapping = autoMapHeaders(sheet.headers, fields)
-    setPendingMapping({ key, sheet, mapping, meta })
+    setPendingMapping({ key, workbook, sheet, sheetIndex, headerRowIndex, mapping, meta })
     setPendingWide(null)
+  }
+
+  function backToSheetPickFromMapping() {
+    if (!pendingMapping) return
+    const { key, workbook, meta, sheetIndex, headerRowIndex } = pendingMapping
+    setPendingMapping(null)
+    setPendingSheetPick({ key, workbook, meta, sheetIndex, headerRowIndex })
+  }
+
+  function backToSheetPickFromWide() {
+    if (!pendingWide) return
+    const { key, workbook, meta, sheetIndex, headerRowIndex } = pendingWide
+    setPendingWide(null)
+    setPendingSheetPick({ key, workbook, meta, sheetIndex, headerRowIndex })
   }
 
   return (
@@ -169,6 +208,17 @@ export default function UploadGate({ dataset, onFileImported, onContinue }: Prop
         </button>
       </div>
 
+      {pendingSheetPick && (
+        <SheetHeaderPicker
+          title={REQUIRED_FILES.find((f) => f.key === pendingSheetPick.key)!.label}
+          workbook={pendingSheetPick.workbook}
+          initialSheetIndex={pendingSheetPick.sheetIndex}
+          initialHeaderRowIndex={pendingSheetPick.headerRowIndex}
+          onConfirm={confirmSheetPick}
+          onCancel={() => setPendingSheetPick(null)}
+        />
+      )}
+
       {pendingMapping && (
         <ColumnMappingModal
           title={REQUIRED_FILES.find((f) => f.key === pendingMapping.key)!.label}
@@ -179,6 +229,7 @@ export default function UploadGate({ dataset, onFileImported, onContinue }: Prop
           totalRowCount={pendingMapping.sheet.rows.length}
           onConfirm={confirmMapping}
           onCancel={() => setPendingMapping(null)}
+          onBack={backToSheetPickFromMapping}
         />
       )}
 
@@ -188,6 +239,7 @@ export default function UploadGate({ dataset, onFileImported, onContinue }: Prop
           onConfirm={confirmWide}
           onUseManualMapping={switchWideToManual}
           onCancel={() => setPendingWide(null)}
+          onBack={backToSheetPickFromWide}
         />
       )}
     </div>

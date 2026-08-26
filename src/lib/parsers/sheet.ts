@@ -17,9 +17,9 @@ export interface ParsedWorkbook {
 
 /**
  * Leser en opplastet fil (xlsx/xls/csv) og returnerer alle ark som rader av
- * objekter nøkkelsatt på kolonneoverskrift. Overskriftsraden gjettes som den
- * første raden som har flest ikke-tomme celler blant de 5 første radene,
- * siden mange eksportfiler har tittel-/metadatarader øverst.
+ * objekter nøkkelsatt på kolonneoverskrift. Overskriftsraden gjettes automatisk
+ * (se guessHeaderRowIndex), men brukeren kan overstyre både ark og overskriftsrad
+ * i grensesnittet – se buildParsedSheet, som brukes til det.
  */
 export async function parseWorkbookFile(file: File): Promise<ParsedWorkbook> {
   const buffer = await file.arrayBuffer()
@@ -28,36 +28,33 @@ export async function parseWorkbookFile(file: File): Promise<ParsedWorkbook> {
   const sheets: ParsedSheet[] = workbook.SheetNames.map((sheetName) => {
     const ws = workbook.Sheets[sheetName]
     const matrix = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, raw: true, defval: '' })
-    const headerRowIndex = guessHeaderRowIndex(matrix)
-    const headerRow = buildHeaderRow(matrix, headerRowIndex)
-    const dataRows = matrix.slice(headerRowIndex + 1)
-
-    const rows: Record<string, unknown>[] = dataRows
-      .filter((r) => r.some((cell) => cell !== '' && cell !== null && cell !== undefined))
-      .map((r) => {
-        const obj: Record<string, unknown> = {}
-        headerRow.forEach((h, i) => {
-          if (!h) return
-          obj[h] = r[i]
-        })
-        return obj
-      })
-
-    return { sheetName, headers: headerRow.filter(Boolean), rows, matrix }
+    return buildParsedSheet(sheetName, matrix, guessHeaderRowIndex(matrix))
   })
 
   return { fileName: file.name, sizeBytes: file.size, sheets }
 }
 
-function guessHeaderRowIndex(matrix: unknown[][]): number {
-  const limit = Math.min(matrix.length, 6)
+/**
+ * Gjetter hvilken rad som mest sannsynlig er overskriftsraden: blant de
+ * første radene, den som har flest tekst-/dato-celler (ekte overskrifter er
+ * som regel tekst), fremfor en rad som bare har flest utfylte celler totalt
+ * (som ofte er en datarad med mange tall – f.eks. en fordelingsrad med
+ * prosentandeler, som ellers lett vinner over den ekte overskriftsraden).
+ */
+export function guessHeaderRowIndex(matrix: unknown[][]): number {
+  const limit = Math.min(matrix.length, 25)
   let bestIndex = 0
-  let bestCount = -1
+  let bestScore = -1
   for (let i = 0; i < limit; i++) {
     const row = matrix[i] ?? []
-    const nonEmpty = row.filter((c) => c !== '' && c !== null && c !== undefined).length
-    if (nonEmpty > bestCount) {
-      bestCount = nonEmpty
+    const nonEmpty = row.filter((c) => c !== '' && c !== null && c !== undefined)
+    if (nonEmpty.length < 2) continue
+    const textOrDateCells = nonEmpty.filter(
+      (c) => c instanceof Date || (typeof c === 'string' && isNaN(Number(c.replace(',', '.')))),
+    )
+    const score = textOrDateCells.length * 3 + nonEmpty.length
+    if (score > bestScore) {
+      bestScore = score
       bestIndex = i
     }
   }
@@ -71,6 +68,13 @@ function normalizeHeader(h: string): string {
 function cellToHeaderLabel(h: unknown): string {
   if (h instanceof Date && !isNaN(h.getTime())) return toIsoMonth(h) ?? normalizeHeader(String(h))
   return normalizeHeader(String(h ?? ''))
+}
+
+/** Tekstvisning av en celle, brukt i rutenett-forhåndsvisning i grensesnittet. */
+export function cellText(v: unknown): string {
+  if (v instanceof Date && !isNaN(v.getTime())) return toIsoMonth(v) ?? v.toLocaleDateString('nb-NO')
+  if (v === null || v === undefined) return ''
+  return String(v)
 }
 
 /**
@@ -122,7 +126,44 @@ function buildHeaderRow(matrix: unknown[][], headerRowIndex: number): string[] {
   })
 }
 
+/**
+ * Bygger en ferdig ParsedSheet (kolonneoverskrifter + rader som objekter) fra
+ * en rå matrise, gitt hvilken rad som er overskriftsrad. Brukes både til den
+ * automatiske gjetningen og når brukeren velger ark/overskriftsrad manuelt,
+ * slik at resultatet blir identisk uansett hvordan raden ble valgt.
+ */
+export function buildParsedSheet(sheetName: string, matrix: unknown[][], headerRowIndex: number): ParsedSheet {
+  const headerRow = buildHeaderRow(matrix, headerRowIndex)
+  const dataRows = matrix.slice(headerRowIndex + 1)
+
+  const rows: Record<string, unknown>[] = dataRows
+    .filter((r) => r.some((cell) => cell !== '' && cell !== null && cell !== undefined))
+    .map((r) => {
+      const obj: Record<string, unknown> = {}
+      headerRow.forEach((h, i) => {
+        if (!h) return
+        obj[h] = r[i]
+      })
+      return obj
+    })
+
+  return { sheetName, headers: headerRow.filter(Boolean), rows, matrix }
+}
+
 /** Velger arket med flest rader (som regel det relevante datarket). */
 export function pickLargestSheet(wb: ParsedWorkbook): ParsedSheet {
   return [...wb.sheets].sort((a, b) => b.rows.length - a.rows.length)[0]
+}
+
+/** Samme som pickLargestSheet, men returnerer indeksen i wb.sheets. */
+export function pickLargestSheetIndex(wb: ParsedWorkbook): number {
+  let bestIndex = 0
+  let bestCount = -1
+  wb.sheets.forEach((s, i) => {
+    if (s.rows.length > bestCount) {
+      bestCount = s.rows.length
+      bestIndex = i
+    }
+  })
+  return bestIndex
 }

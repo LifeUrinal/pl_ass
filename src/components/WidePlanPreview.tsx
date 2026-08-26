@@ -6,9 +6,10 @@ interface Props {
   onConfirm: () => void
   onUseManualMapping: () => void
   onCancel: () => void
+  onBack?: () => void
 }
 
-export default function WidePlanPreview({ rows, onConfirm, onUseManualMapping, onCancel }: Props) {
+export default function WidePlanPreview({ rows, onConfirm, onUseManualMapping, onCancel, onBack }: Props) {
   const total = rows.reduce((s, r) => s + r.planlagtBelop, 0)
   return (
     <div className="modal-backdrop">
@@ -39,6 +40,11 @@ export default function WidePlanPreview({ rows, onConfirm, onUseManualMapping, o
           <button className="btn-secondary" onClick={onCancel}>
             Avbryt
           </button>
+          {onBack && (
+            <button className="btn-tertiary" onClick={onBack}>
+              ← Velg annet ark/rad
+            </button>
+          )}
           <button className="btn-tertiary" onClick={onUseManualMapping}>
             Dette stemmer ikke – velg kolonner manuelt
           </button>

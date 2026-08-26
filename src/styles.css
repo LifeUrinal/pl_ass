@@ -178,6 +178,62 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   overflow-y: auto;
 }
 
+.modal-wide {
+  max-width: 920px;
+}
+
+.sheet-select-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-size: 0.88rem;
+}
+.sheet-select-row select {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font: inherit;
+}
+
+.grid-preview {
+  max-height: 360px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.grid-preview table { margin-top: 0; }
+.grid-preview tbody tr { cursor: pointer; }
+.grid-preview tbody tr:hover { background: rgba(36, 82, 224, 0.06); }
+.grid-preview td {
+  white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.header-row-selected {
+  background: var(--ok-bg) !important;
+  font-weight: 600;
+}
+.row-picker-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: sticky;
+  left: 0;
+  background: inherit;
+}
+.row-index { color: var(--muted); font-size: 0.78rem; }
+
+.preview-result {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+.preview-result p { margin: 0 0 4px; }
+
 .mapping-table {
   display: flex;
   flex-direction: column;
