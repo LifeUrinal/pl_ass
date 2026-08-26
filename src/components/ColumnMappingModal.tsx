@@ -10,9 +10,10 @@ interface Props {
   totalRowCount: number
   onConfirm: (mapping: ColumnMapping) => void
   onCancel: () => void
+  onBack?: () => void
 }
 
-export default function ColumnMappingModal({ title, fields, headers, initialMapping, previewRows, totalRowCount, onConfirm, onCancel }: Props) {
+export default function ColumnMappingModal({ title, fields, headers, initialMapping, previewRows, totalRowCount, onConfirm, onCancel, onBack }: Props) {
   const [mapping, setMapping] = useState<ColumnMapping>(initialMapping)
 
   const missingRequired = fields.filter((f) => f.required && !mapping[f.key])
@@ -41,8 +42,8 @@ export default function ColumnMappingModal({ title, fields, headers, initialMapp
                 onChange={(e) => setField(f.key, e.target.value)}
               >
                 <option value="">— ikke i bruk —</option>
-                {headers.map((h) => (
-                  <option key={h} value={h}>
+                {headers.map((h, i) => (
+                  <option key={`${h}-${i}`} value={h}>
                     {h}
                   </option>
                 ))}
@@ -64,6 +65,11 @@ export default function ColumnMappingModal({ title, fields, headers, initialMapp
           <button className="btn-secondary" onClick={onCancel}>
             Avbryt
           </button>
+          {onBack && (
+            <button className="btn-tertiary" onClick={onBack}>
+              ← Velg annet ark/rad
+            </button>
+          )}
           <button className="btn-primary" disabled={missingRequired.length > 0} onClick={() => onConfirm(mapping)}>
             Bekreft og importer ({totalRowCount} rader)
           </button>
