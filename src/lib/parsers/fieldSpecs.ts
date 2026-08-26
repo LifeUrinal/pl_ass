@@ -33,10 +33,11 @@ export const FIELD_SPECS: Record<RequiredFileKey, FieldSpec[]> = {
   ],
   beslutningsplan: [
     { key: 'id', label: 'Nr', synonyms: ['nr', 'id', 'løpenr'], required: false, type: 'string' },
-    { key: 'tema', label: 'Tema / avklaring', synonyms: ['tema', 'avklaring', 'beskrivelse', 'sak', 'beslutning'], required: true, type: 'string' },
-    { key: 'fristDato', label: 'Frist for beslutning', synonyms: ['frist', 'beslutningsdato', 'dato', 'behov innen', 'behovsdato'], required: true, type: 'date' },
-    { key: 'ansvarlig', label: 'Ansvarlig', synonyms: ['ansvarlig', 'byggherre', 'beslutningstaker'], required: false, type: 'string' },
-    { key: 'status', label: 'Status', synonyms: ['status'], required: false, type: 'string' },
+    { key: 'tema', label: 'Tema / avklaring', synonyms: ['tema', 'avklaring', 'beskrivelse', 'sak'], required: true, type: 'string' },
+    { key: 'henvisning', label: 'Henvisning / kommentar', synonyms: ['henvisning/kommentar', 'henvisning', 'kommentar', 'merknad', 'referanse'], required: true, type: 'string' },
+    { key: 'fristDato', label: 'Frist for beslutning', synonyms: ['beslutning frist', 'frist', 'beslutningsdato', 'behov innen', 'behovsdato', 'dato'], required: false, type: 'date' },
+    { key: 'ansvarlig', label: 'Ansvarlig', synonyms: ['beslutning ansvar', 'ansvarlig', 'ansvar', 'byggherre', 'beslutningstaker'], required: false, type: 'string' },
+    { key: 'status', label: 'Status', synonyms: ['beslutning status', 'status'], required: false, type: 'string' },
     { key: 'knyttetProdkode', label: 'Prodkode', synonyms: ['prodkode', 'kode', 'fag'], required: false, type: 'string' },
   ],
   innkjopsplan: [

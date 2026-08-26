@@ -87,13 +87,14 @@ export function toBeslutningRows(rows: Record<string, unknown>[], mapping: Colum
   return rows
     .map((r, i) => ({
       id: str(r, mapping, 'id') || `B${i + 1}`,
-      tema: str(r, mapping, 'tema') || `Avklaring ${i + 1}`,
+      tema: str(r, mapping, 'tema'),
       fristDato: dateIso(r, mapping, 'fristDato') ?? '',
       ansvarlig: str(r, mapping, 'ansvarlig') || undefined,
       status: str(r, mapping, 'status') || undefined,
       knyttetProdkode: str(r, mapping, 'knyttetProdkode') || undefined,
+      henvisning: str(r, mapping, 'henvisning') || undefined,
     }))
-    .filter((r) => r.tema && r.fristDato)
+    .filter((r) => r.tema)
 }
 
 export function toInnkjopRows(rows: Record<string, unknown>[], mapping: ColumnMapping): InnkjopRad[] {

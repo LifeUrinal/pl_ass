@@ -35,6 +35,7 @@ export default function PlanTimelines({ beslutningsplan, innkjopsplan, konflikte
                 <tr>
                   <th>Frist</th>
                   <th>Tema</th>
+                  <th>Henvisning/kommentar</th>
                   <th>Prodkode</th>
                   <th>Ansvarlig</th>
                 </tr>
@@ -42,15 +43,16 @@ export default function PlanTimelines({ beslutningsplan, innkjopsplan, konflikte
               <tbody>
                 {beslutninger.map((b) => (
                   <tr key={b.id}>
-                    <td>{b.fristDato}</td>
+                    <td>{b.fristDato || '–'}</td>
                     <td>{b.tema}</td>
+                    <td>{b.henvisning ?? '–'}</td>
                     <td>{b.knyttetProdkode ?? '–'}</td>
                     <td>{b.ansvarlig ?? '–'}</td>
                   </tr>
                 ))}
                 {beslutninger.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="muted">
+                    <td colSpan={5} className="muted">
                       Ingen avklaringer registrert.
                     </td>
                   </tr>

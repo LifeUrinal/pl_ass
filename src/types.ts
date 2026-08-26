@@ -27,6 +27,7 @@ export interface BeslutningRad {
   ansvarlig?: string
   status?: string
   knyttetProdkode?: string
+  henvisning?: string
 }
 
 /** Én rad i innkjøpsplanen: når en entreprise/fag skal kjøpes inn. */
