@@ -1,7 +1,38 @@
-# pl_ass – Prosjektøkonomi
+# pl_ass – Prosjektlederassistent
 
-Prosjektlederassistent: en nettapp som hjelper prosjektledere på byggeplasser med å
-holde kontroll på prosjektøkonomien.
+En nettapp som hjelper prosjektledere på byggeplasser. Appen har to moduler,
+valgt i menylinjen øverst:
+
+- **Fremdriftsplan** – en Gantt-tidslinje for aktiviteter per område og UE.
+- **Prosjektøkonomi** – budsjett, S-kurve, avstemming m.m. fra opplastede filer.
+
+## Fremdriftsplan
+
+Planen består av **områder** (f.eks. «Plan 1», «Teknisk rom», «Tak»),
+**firmaer/UE-er** og **aktiviteter**. Hver aktivitet har område, firma,
+type (prosjektering, utførelse, testing, befaring, overlevering), start- og
+sluttdato, fremdrift i prosent, notat og eventuelle avhengigheter
+(aktiviteter som må være ferdige før den kan starte).
+
+- **Grupper** etter område, firma eller aktivitetstype – og **farge** etter det samme.
+- **Dag / Uke / Måned**-visning med helgeskygge og i-dag-linje.
+- **Dra** en stolpe for å flytte den, dra kantene for å endre lengde.
+- **Avhengigheter**: dra prikken til høyre på en stolpe over en annen aktivitet,
+  eller legg dem til i detaljpanelet. Appen hindrer sirkulære avhengigheter.
+- **Konflikter**: aktiviteter som starter før en forgjenger er ferdig markeres
+  rødt, med knapper for å flytte aktiviteten eller skyve etterfølgerne. Slå på
+  «Skyv avhengige» for å gjøre dette automatisk ved hver endring.
+- **Filtre**: søk, «Pågår nå», «Neste to uker», «Forsinket», «Med konflikter».
+- **Angre** (Ctrl+Z), **Excel-eksport og -import** (samme kolonneformat begge
+  veier; importen kjenner også igjen vanlige varianter som «Fra/Til», «UE»).
+- Ved første oppstart lastes en eksempelplan, som kan erstattes via Fil-menyen.
+
+Planen lagres lokalt i nettleseren (IndexedDB), akkurat som økonomidelen.
+Koden ligger i `src/fremdrift/`.
+
+## Prosjektøkonomi
+
+Økonomimodulen hjelper med å holde kontroll på prosjektøkonomien.
 
 Appen er en frittstående klientapplikasjon (ingen server/database) – alle filer
 lastes opp og tolkes i nettleseren, og dataene lagres lokalt i nettleseren
