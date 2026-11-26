@@ -979,3 +979,5 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .fd-register-modal .two-col { grid-template-columns: 3fr 2fr; }
 .fd-register-modal .two-col > div { min-width: 0; }
 @media (max-width: 800px) { .fd-register-modal .two-col { grid-template-columns: 1fr; } }
+.fd-helligdag { position: absolute; top: 0; bottom: 0; background: rgba(214, 69, 69, 0.07); }
+.fd-hode-celle.nedre.helligdag { color: var(--danger); cursor: help; }

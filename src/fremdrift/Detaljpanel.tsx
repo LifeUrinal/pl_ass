@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Aktivitet, AktivitetType, Fremdriftsplan } from './types'
 import { AKTIVITET_TYPER } from './types'
-import { antallDager, arbeidsdager, iDag, kortDato, leggTilDager } from './dato'
+import { antallDager, arbeidsdager, helligdagerIPeriode, iDag, kortDato, leggTilDager } from './dato'
 import { STATUS_TEKST, etterfolgere, konflikterFor, lagerSirkel, omradeFullNavn, statusFor } from './logikk'
 
 interface Props {
@@ -24,6 +24,7 @@ export default function Detaljpanel(props: Props) {
   const egneKonflikter = konflikterFor(a, map)
   const blokkerer = etterfolgere(a.id, plan.aktiviteter)
   const blokkererIKonflikt = blokkerer.filter((b) => b.start <= a.slutt)
+  const fridager = helligdagerIPeriode(a.start, a.slutt)
   const status = statusFor(a, egneKonflikter.length > 0, iDag())
   const navnRef = useRef<HTMLInputElement>(null)
   const [visLeggTil, setVisLeggTil] = useState(false)
@@ -153,6 +154,11 @@ export default function Detaljpanel(props: Props) {
         <label>Varighet</label>
         <div>
           <strong>{antallDager(a.start, a.slutt)} dager</strong> <span className="muted">{arbeidsdager(a.start, a.slutt)} arbeidsdager</span>
+          {fridager.length > 0 && (
+            <div className="muted small" title={fridager.map((h) => `${kortDato(h.dato)}: ${h.navn}`).join('\n')}>
+              Helligdager trukket fra: {fridager.map((h) => `${h.navn} (${kortDato(h.dato)})`).join(', ')}
+            </div>
+          )}
         </div>
       </div>
       <div className="fd-felt">

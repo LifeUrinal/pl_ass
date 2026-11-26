@@ -20,7 +20,11 @@ sluttdato, fremdrift i prosent, notat og eventuelle avhengigheter
 - **Filtrer på bygg** for å se ett bygg om gangen.
 - Bygg, områder og firmaer vedlikeholdes i dialogen «Bygg og områder»
   (endre navn, rekkefølge, flytte et område til et annet bygg).
-- **Dag / Uke / Måned**-visning med helgeskygge og i-dag-linje.
+- **Dag / Uke / Måned**-visning med helgeskygge, markerte helligdager og i-dag-linje.
+- **Arbeidsdager** regnes som mandag–fredag minus norske helligdager (nyttårsdag,
+  skjærtorsdag, langfredag, 2. påskedag, 1. mai, 17. mai, Kristi himmelfartsdag,
+  2. pinsedag, 1. og 2. juledag – påskeavhengige dager beregnes for hvert år).
+  Detaljpanelet viser hvilke helligdager som er trukket fra.
 - **Dra** en stolpe for å flytte den, dra kantene for å endre lengde.
 - **Avhengigheter**: dra prikken til høyre på en stolpe over en annen aktivitet,
   eller legg dem til i detaljpanelet. Appen hindrer sirkulære avhengigheter.

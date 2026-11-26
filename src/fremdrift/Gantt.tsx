@@ -11,6 +11,7 @@ import {
   leggTilDager,
   nesteManed,
   tilDag,
+  helligdag,
   ukedag,
   ukenummer,
 } from './dato'
@@ -463,7 +464,7 @@ function AktivitetRad(p: RadProps) {
 
 function Hode({ fraD, tilD, px, zoom, idagDag, antall }: { fraD: number; tilD: number; px: number; zoom: Zoom; idagDag: number; antall: number }) {
   const ovre: { x: number; w: number; tekst: string }[] = []
-  const nedre: { x: number; w: number; tekst: string; helg?: boolean }[] = []
+  const nedre: { x: number; w: number; tekst: string; helg?: boolean; tittel?: string }[] = []
 
   if (zoom === 'maned') {
     // øvre: år, nedre: måneder
@@ -487,7 +488,10 @@ function Hode({ fraD, tilD, px, zoom, idagDag, antall }: { fraD: number; tilD: n
       d = n
     }
     if (zoom === 'dag') {
-      for (let d = fraD; d <= tilD; d++) nedre.push({ x: (d - fraD) * px, w: px, tekst: String(delerAvDag(d).dag), helg: ukedag(d) >= 5 })
+      for (let d = fraD; d <= tilD; d++) {
+        const hd = helligdag(d)
+        nedre.push({ x: (d - fraD) * px, w: px, tekst: String(delerAvDag(d).dag), helg: ukedag(d) >= 5 || !!hd, tittel: hd })
+      }
     } else {
       for (let d = fraD; d <= tilD; d += 7) nedre.push({ x: (d - fraD) * px, w: 7 * px, tekst: `uke ${ukenummer(d)}` })
     }
@@ -509,7 +513,7 @@ function Hode({ fraD, tilD, px, zoom, idagDag, antall }: { fraD: number; tilD: n
         </div>
         <div className="fd-hode-rad">
           {nedre.map((o) => (
-            <div key={o.x} className={`fd-hode-celle nedre ${o.helg ? 'helg' : ''}`} style={{ left: o.x, width: o.w }}>
+            <div key={o.x} className={`fd-hode-celle nedre ${o.helg ? 'helg' : ''} ${o.tittel ? 'helligdag' : ''}`} style={{ left: o.x, width: o.w }} title={o.tittel}>
               {o.tekst}
             </div>
           ))}
@@ -530,8 +534,14 @@ function Bakgrunn({ fraD, tilD, px, zoom, hoyde, idagDag }: { fraD: number; tilD
     zoom === 'maned'
       ? undefined
       : `repeating-linear-gradient(90deg, transparent 0 ${5 * px}px, var(--fd-helg) ${5 * px}px ${7 * px}px)`
+  // helligdager som faller på hverdager tegnes som egne striper (helgene er allerede skyggelagt)
+  const helligdager: number[] = []
+  if (zoom !== 'maned') for (let d = fraD; d <= tilD; d++) if (ukedag(d) < 5 && helligdag(d)) helligdager.push(d)
   return (
     <div className="fd-bakgrunn" style={{ left: VENSTRE_B, width: (tilD - fraD + 1) * px, height: hoyde, backgroundImage: helg }}>
+      {helligdager.map((d) => (
+        <div key={d} className="fd-helligdag" style={{ left: (d - fraD) * px, width: px }} />
+      ))}
       {linjer.map((x) => (
         <div key={x} className="fd-manedslinje" style={{ left: x }} />
       ))}
