@@ -961,3 +961,21 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 .fd-register-rad .muted { white-space: nowrap; width: 48px; text-align: right; }
 .fd-fargevelger { width: 30px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: none; cursor: pointer; flex: none; }
+.fd-register-overskrift { margin-top: 22px; }
+.fd-register-gruppe { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.fd-register-byggnavn { font-size: 0.82rem; font-weight: 600; margin-top: 4px; }
+.fd-register-select {
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 6px 6px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  max-width: 140px;
+}
+.fd-rad-gruppe.niva-0 .fd-gruppenavn { font-weight: 650; }
+.fd-rad-gruppe.niva-1 .fd-venstre { font-weight: 500; }
+.fd-rad-gruppe.niva-1 .fd-sammendrag { height: 4px; top: 18px; }
+.fd-register-modal .two-col { grid-template-columns: 3fr 2fr; }
+.fd-register-modal .two-col > div { min-width: 0; }
+@media (max-width: 800px) { .fd-register-modal .two-col { grid-template-columns: 1fr; } }

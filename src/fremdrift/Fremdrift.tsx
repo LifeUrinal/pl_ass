@@ -4,6 +4,8 @@ import { AKTIVITET_TYPER } from './types'
 import { iDag, leggTilDager } from './dato'
 import {
   OMRADE_FARGER,
+  byggIdFor,
+  omradeFullNavn,
   filtrer,
   finnKonflikter,
   flyttEtterForgjengere,
@@ -18,6 +20,7 @@ import { TOM_PLAN, eksempelplan, lagrePlan, lastPlan } from './lagring'
 import { eksporterExcel, importerExcel } from './excel'
 import Gantt from './Gantt'
 import type { Rad } from './Gantt'
+import type { Gruppe, GruppeFelt } from './logikk'
 import Detaljpanel from './Detaljpanel'
 import RegisterModal from './RegisterModal'
 
@@ -55,7 +58,8 @@ export default function Fremdrift() {
   const [hist, setHist] = useState<Historikk | null>(null)
   const plan = hist?.na
 
-  const [grupperEtter, setGrupperEtter] = useHusk<GrupperEtter>('grupper', 'omrade')
+  const [grupperEtter, setGrupperEtter] = useHusk<GrupperEtter>('grupper', 'bygg-omrade')
+  const [byggFilter, setByggFilter] = useState('')
   const [fargeEtter, setFargeEtter] = useHusk<FargeEtter>('farge', 'type')
   const [zoom, setZoom] = useHusk<Zoom>('zoom', 'uke')
   const [visning, setVisning] = useState<Visning>('alle')
@@ -113,26 +117,53 @@ export default function Fremdrift() {
 
   // --- Avledede data ---------------------------------------------------------
   const konflikter = useMemo(() => finnKonflikter(plan?.aktiviteter ?? []), [plan])
-  const synlige = useMemo(() => (plan ? filtrer(plan.aktiviteter, visning, sok, konflikter, idag) : []), [plan, visning, sok, konflikter, idag])
+  const synlige = useMemo(() => {
+    if (!plan) return []
+    const f = filtrer(plan.aktiviteter, visning, sok, konflikter, idag)
+    if (!byggFilter) return f
+    return f.filter((a) => (byggIdFor(a, plan) ?? '__uten') === byggFilter)
+  }, [plan, visning, sok, konflikter, idag, byggFilter])
   const grupperte = useMemo(() => (plan ? grupper(plan, synlige, grupperEtter) : []), [plan, synlige, grupperEtter])
 
   const rader: Rad[] = useMemo(() => {
     const ut: Rad[] = []
-    for (const g of grupperte) {
-      const erLukket = lukket.has(grupperEtter + ':' + g.id)
-      ut.push({ type: 'gruppe', id: g.id, navn: g.navn, antall: g.aktiviteter.length, lukket: erLukket, spenn: spenn(g.aktiviteter), fremdrift: samletFremdrift(g.aktiviteter) })
-      if (!erLukket) for (const a of g.aktiviteter) ut.push({ type: 'akt', a })
+    const leggTil = (g: Gruppe, niva: number) => {
+      const erLukket = lukket.has(grupperEtter + '|' + g.nokkel)
+      ut.push({
+        type: 'gruppe',
+        nokkel: g.nokkel,
+        id: g.id,
+        felt: g.felt,
+        niva,
+        navn: g.navn,
+        antall: g.aktiviteter.length,
+        lukket: erLukket,
+        spenn: spenn(g.aktiviteter),
+        fremdrift: samletFremdrift(g.aktiviteter),
+      })
+      if (erLukket) return
+      if (g.under) g.under.forEach((u) => leggTil(u, niva + 1))
+      else for (const a of g.aktiviteter) ut.push({ type: 'akt', a, niva })
     }
+    grupperte.forEach((g) => leggTil(g, 0))
     return ut
   }, [grupperte, lukket, grupperEtter])
 
-  const rekkefolge = useMemo(() => grupperte.flatMap((g) => g.aktiviteter.map((a) => a.id)), [grupperte])
+  const rekkefolge = useMemo(() => {
+    const flat = (g: Gruppe): string[] => (g.under ? g.under.flatMap(flat) : g.aktiviteter.map((a) => a.id))
+    return grupperte.flatMap(flat)
+  }, [grupperte])
   const firmaMap = useMemo(() => new Map((plan?.firmaer ?? []).map((f) => [f.id, f])), [plan])
   const omfang = useMemo(() => spenn(plan?.aktiviteter ?? []), [plan])
 
   const fargeFor = useCallback(
     (a: Aktivitet) => {
       if (fargeEtter === 'firma') return (a.firmaId && firmaMap.get(a.firmaId)?.farge) || '#9aa3ae'
+      if (fargeEtter === 'bygg') {
+        const b = plan ? byggIdFor(a, plan) : null
+        const i = plan?.bygg.findIndex((x) => x.id === b) ?? -1
+        return i >= 0 ? OMRADE_FARGER[i % OMRADE_FARGER.length] : '#9aa3ae'
+      }
       if (fargeEtter === 'omrade') {
         const i = plan?.omrader.findIndex((o) => o.id === a.omradeId) ?? -1
         return i >= 0 ? OMRADE_FARGER[i % OMRADE_FARGER.length] : '#9aa3ae'
@@ -165,14 +196,17 @@ export default function Fremdrift() {
   if (!plan || !hist) return <div className="loading-screen">Laster fremdriftsplan…</div>
 
   // --- Handlinger -----------------------------------------------------------
-  function nyAktivitet(gruppeId?: string) {
+  function nyAktivitet(felt?: GruppeFelt, gruppeId?: string | null) {
     const id = nyId()
+    // I en bygg-gruppe havner den nye aktiviteten i byggets første område
+    const omradeId =
+      felt === 'omrade' ? (gruppeId ?? null) : felt === 'bygg' && gruppeId ? (plan!.omrader.find((o) => o.byggId === gruppeId)?.id ?? null) : null
     const a: Aktivitet = {
       id,
       navn: 'Ny aktivitet',
-      omradeId: grupperEtter === 'omrade' && gruppeId && gruppeId !== '__uten' ? gruppeId : null,
-      firmaId: grupperEtter === 'firma' && gruppeId && gruppeId !== '__uten' ? gruppeId : null,
-      type: grupperEtter === 'type' && gruppeId ? (gruppeId as Aktivitet['type']) : 'utforelse',
+      omradeId,
+      firmaId: felt === 'firma' ? (gruppeId ?? null) : null,
+      type: felt === 'type' && gruppeId ? (gruppeId as Aktivitet['type']) : 'utforelse',
       start: idag,
       slutt: leggTilDager(idag, 4),
       fremdrift: 0,
@@ -183,13 +217,8 @@ export default function Fremdrift() {
     setSok('')
     setValgtId(id)
     setNyId(id)
-    if (gruppeId) {
-      setLukket((s) => {
-        const n = new Set(s)
-        n.delete(grupperEtter + ':' + gruppeId)
-        return n
-      })
-    }
+    // åpne gruppene den nye aktiviteten havner i
+    setLukket((s) => new Set([...s].filter((k) => !k.startsWith(grupperEtter + '|'))))
   }
 
   function velg(id: string | null) {
@@ -225,10 +254,10 @@ export default function Fremdrift() {
     velg(rekkefolge[(i + retning + rekkefolge.length) % rekkefolge.length])
   }
 
-  function toggleGruppe(id: string) {
+  function toggleGruppe(nokkel: string) {
     setLukket((s) => {
       const n = new Set(s)
-      const k = grupperEtter + ':' + id
+      const k = grupperEtter + '|' + nokkel
       if (n.has(k)) n.delete(k)
       else n.add(k)
       return n
@@ -238,7 +267,7 @@ export default function Fremdrift() {
   async function importer(fil: File) {
     try {
       const { plan: ny, advarsler } = await importerExcel(fil, plan!.prosjektnavn)
-      if (!confirm(`Fant ${ny.aktiviteter.length} aktiviteter, ${ny.omrader.length} områder og ${ny.firmaer.length} firmaer.\n\nDette erstatter planen du har nå (du kan angre). Fortsette?`)) return
+      if (!confirm(`Fant ${ny.aktiviteter.length} aktiviteter, ${ny.bygg.length} bygg, ${ny.omrader.length} områder og ${ny.firmaer.length} firmaer.\n\nDette erstatter planen du har nå (du kan angre). Fortsette?`)) return
       endre(() => ny)
       setValgtId(null)
       if (advarsler.length) alert('Importert, med merknader:\n\n' + advarsler.slice(0, 15).join('\n') + (advarsler.length > 15 ? `\n… og ${advarsler.length - 15} til` : ''))
@@ -261,7 +290,9 @@ export default function Fremdrift() {
       ? AKTIVITET_TYPER.map((t) => ({ navn: t.navn, farge: t.farge }))
       : fargeEtter === 'firma'
         ? plan.firmaer.map((f) => ({ navn: f.navn, farge: f.farge }))
-        : plan.omrader.map((o, i) => ({ navn: o.navn, farge: OMRADE_FARGER[i % OMRADE_FARGER.length] }))
+        : fargeEtter === 'bygg'
+          ? plan.bygg.map((b, i) => ({ navn: b.navn, farge: OMRADE_FARGER[i % OMRADE_FARGER.length] }))
+          : plan.omrader.map((o, i) => ({ navn: omradeFullNavn(o, plan), farge: OMRADE_FARGER[i % OMRADE_FARGER.length] }))
 
   return (
     <div className="fd">
@@ -298,7 +329,7 @@ export default function Fremdrift() {
             ↶ Angre
           </button>
           <button className="btn-secondary" onClick={() => setVisRegister(true)}>
-            Områder og firmaer
+            Bygg og områder
           </button>
           <details className="fd-meny" ref={menyRef}>
             <summary className="btn-secondary">Fil ▾</summary>
@@ -358,6 +389,8 @@ export default function Fremdrift() {
         <label className="fd-valg">
           Grupper etter
           <select value={grupperEtter} onChange={(e) => setGrupperEtter(e.target.value as GrupperEtter)}>
+            <option value="bygg-omrade">Bygg → område</option>
+            <option value="bygg">Bygg</option>
             <option value="omrade">Område</option>
             <option value="firma">Firma (UE)</option>
             <option value="type">Aktivitetstype</option>
@@ -369,9 +402,24 @@ export default function Fremdrift() {
           <select value={fargeEtter} onChange={(e) => setFargeEtter(e.target.value as FargeEtter)}>
             <option value="type">Aktivitetstype</option>
             <option value="firma">Firma (UE)</option>
+            <option value="bygg">Bygg</option>
             <option value="omrade">Område</option>
           </select>
         </label>
+        {plan.bygg.length > 0 && (
+          <label className="fd-valg">
+            Bygg
+            <select value={byggFilter} onChange={(e) => setByggFilter(e.target.value)}>
+              <option value="">Alle bygg</option>
+              {plan.bygg.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.navn}
+                </option>
+              ))}
+              {plan.omrader.some((o) => !o.byggId) && <option value="__uten">Uten bygg</option>}
+            </select>
+          </label>
+        )}
         <label className="fd-valg">
           Vis
           <select value={visning} onChange={(e) => setVisning(e.target.value as Visning)}>
@@ -430,7 +478,7 @@ export default function Fremdrift() {
           onFlytt={(id, start, slutt) => endreAktivitet(id, { start, slutt })}
           onKobl={kobl}
           onToggleGruppe={toggleGruppe}
-          onNyIGruppe={nyAktivitet}
+          onNyIGruppe={(felt, id) => nyAktivitet(felt, id)}
           iDagSignal={iDagSignal}
           piler={piler}
         />

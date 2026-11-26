@@ -8,13 +8,18 @@ valgt i menylinjen øverst:
 
 ## Fremdriftsplan
 
-Planen består av **områder** (f.eks. «Plan 1», «Teknisk rom», «Tak»),
-**firmaer/UE-er** og **aktiviteter**. Hver aktivitet har område, firma,
+Planen består av **bygg** (f.eks. «Bygg A – Kontor»), **områder** i hvert
+bygg (f.eks. «Plan 1», «Teknisk rom», «Tak»), **firmaer/UE-er** og
+**aktiviteter**. Samme områdenavn kan brukes i flere bygg. Hver aktivitet har område, firma,
 type (prosjektering, utførelse, testing, befaring, overlevering), start- og
 sluttdato, fremdrift i prosent, notat og eventuelle avhengigheter
 (aktiviteter som må være ferdige før den kan starte).
 
-- **Grupper** etter område, firma eller aktivitetstype – og **farge** etter det samme.
+- **Grupper** etter bygg → område (to nivåer, standard), bygg, område, firma
+  eller aktivitetstype – og **farge** etter bygg, område, firma eller type.
+- **Filtrer på bygg** for å se ett bygg om gangen.
+- Bygg, områder og firmaer vedlikeholdes i dialogen «Bygg og områder»
+  (endre navn, rekkefølge, flytte et område til et annet bygg).
 - **Dag / Uke / Måned**-visning med helgeskygge og i-dag-linje.
 - **Dra** en stolpe for å flytte den, dra kantene for å endre lengde.
 - **Avhengigheter**: dra prikken til høyre på en stolpe over en annen aktivitet,

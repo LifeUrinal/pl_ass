@@ -15,6 +15,7 @@ import {
   ukenummer,
 } from './dato'
 import { initialer } from './logikk'
+import type { GruppeFelt } from './logikk'
 
 const RAD_H = 40
 const VENSTRE_B = 300
@@ -24,14 +25,17 @@ const PX_PER_DAG: Record<Zoom, number> = { dag: 32, uke: 14, maned: 4 }
 export type Rad =
   | {
       type: 'gruppe'
-      id: string
+      nokkel: string
+      id: string | null
+      felt: GruppeFelt
+      niva: number
       navn: string
       antall: number
       lukket: boolean
       spenn: { start: string; slutt: string } | null
       fremdrift: number
     }
-  | { type: 'akt'; a: Aktivitet }
+  | { type: 'akt'; a: Aktivitet; niva: number }
 
 interface Props {
   rader: Rad[]
@@ -45,8 +49,8 @@ interface Props {
   onVelg: (id: string | null) => void
   onFlytt: (id: string, start: string, slutt: string) => void
   onKobl: (forgjengerId: string, etterfolgerId: string) => void
-  onToggleGruppe: (id: string) => void
-  onNyIGruppe: (gruppeId: string) => void
+  onToggleGruppe: (nokkel: string) => void
+  onNyIGruppe: (felt: GruppeFelt, id: string | null) => void
   iDagSignal: number
   piler: 'alle' | 'valgt' | 'ingen'
 }
@@ -267,18 +271,18 @@ export default function Gantt(props: Props) {
 
           {rader.map((r, i) =>
             r.type === 'gruppe' ? (
-              <div className="fd-rad fd-rad-gruppe" key={'g' + r.id} style={{ top: i * RAD_H }}>
-                <div className="fd-venstre" onClick={() => props.onToggleGruppe(r.id)}>
+              <div className={`fd-rad fd-rad-gruppe niva-${r.niva}`} key={'g' + r.nokkel} style={{ top: i * RAD_H }}>
+                <div className="fd-venstre" style={{ paddingLeft: 16 + r.niva * 20 }} onClick={() => props.onToggleGruppe(r.nokkel)}>
                   <span className={`fd-chevron ${r.lukket ? '' : 'apen'}`}>›</span>
                   <span className="fd-gruppenavn">{r.navn}</span>
                   <span className="fd-antall">{r.antall}</span>
-                  {r.id !== 'alle' && (
+                  {r.felt !== 'ingen' && (
                     <button
                       className="fd-pluss"
                       title="Ny aktivitet i denne gruppen"
                       onClick={(e) => {
                         e.stopPropagation()
-                        props.onNyIGruppe(r.id)
+                        props.onNyIGruppe(r.felt, r.id)
                       }}
                     >
                       +
@@ -298,6 +302,7 @@ export default function Gantt(props: Props) {
               <AktivitetRad
                 key={r.a.id}
                 a={visAkt(r.a)}
+                niva={r.niva}
                 top={i * RAD_H}
                 px={px}
                 xFor={xFor}
@@ -355,6 +360,7 @@ export default function Gantt(props: Props) {
 
 interface RadProps {
   a: Aktivitet
+  niva: number
   top: number
   y: number
   px: number
@@ -387,7 +393,7 @@ function AktivitetRad(p: RadProps) {
 
   return (
     <div className={`fd-rad ${p.valgt ? 'valgt' : ''}`} style={{ top: p.top }}>
-      <div className="fd-venstre fd-akt" onClick={p.onVelg} data-akt={a.id}>
+      <div className="fd-venstre fd-akt" style={{ paddingLeft: 34 + p.niva * 20 }} onClick={p.onVelg} data-akt={a.id}>
         <span className="fd-avatar" style={{ background: firma?.farge ?? '#c4c9d1' }} title={firma?.navn ?? 'Ingen firma'}>
           {firma ? initialer(firma.navn) : '–'}
         </span>

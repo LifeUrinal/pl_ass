@@ -11,9 +11,15 @@ export const AKTIVITET_TYPER: { id: AktivitetType; navn: string; farge: string }
   { id: 'overlevering', navn: 'Overlevering', farge: '#d6457a' },
 ]
 
+export interface Bygg {
+  id: string
+  navn: string
+}
+
 export interface Omrade {
   id: string
   navn: string
+  byggId: string | null
 }
 
 export interface Firma {
@@ -37,12 +43,13 @@ export interface Aktivitet {
 
 export interface Fremdriftsplan {
   prosjektnavn: string
+  bygg: Bygg[]
   omrader: Omrade[]
   firmaer: Firma[]
   aktiviteter: Aktivitet[]
 }
 
-export type GrupperEtter = 'omrade' | 'firma' | 'type' | 'ingen'
-export type FargeEtter = 'type' | 'firma' | 'omrade'
+export type GrupperEtter = 'bygg-omrade' | 'bygg' | 'omrade' | 'firma' | 'type' | 'ingen'
+export type FargeEtter = 'type' | 'firma' | 'omrade' | 'bygg'
 export type Zoom = 'dag' | 'uke' | 'maned'
 export type Visning = 'alle' | 'konflikter' | 'pagar' | 'neste14' | 'forsinket'

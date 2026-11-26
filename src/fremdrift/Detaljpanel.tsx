@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Aktivitet, AktivitetType, Fremdriftsplan } from './types'
 import { AKTIVITET_TYPER } from './types'
 import { antallDager, arbeidsdager, iDag, kortDato, leggTilDager } from './dato'
-import { STATUS_TEKST, etterfolgere, konflikterFor, lagerSirkel, statusFor } from './logikk'
+import { STATUS_TEKST, etterfolgere, konflikterFor, lagerSirkel, omradeFullNavn, statusFor } from './logikk'
 
 interface Props {
   plan: Fremdriftsplan
@@ -50,7 +50,13 @@ export default function Detaljpanel(props: Props) {
   const kandidater = plan.aktiviteter
     .filter((x) => x.id !== a.id && !a.avhengerAv.includes(x.id) && !lagerSirkel(a.id, x.id, plan.aktiviteter))
     .sort((x, y) => x.navn.localeCompare(y.navn, 'nb'))
-  const omradeNavn = (id: string | null) => plan.omrader.find((o) => o.id === id)?.navn ?? 'Uten område'
+  const omradeNavn = (id: string | null) => {
+    const o = plan.omrader.find((x) => x.id === id)
+    return o ? omradeFullNavn(o, plan) : 'Uten område'
+  }
+  const byggGrupper = [...plan.bygg, { id: null as string | null, navn: 'Uten bygg' }]
+    .map((b) => ({ ...b, omrader: plan.omrader.filter((o) => (o.byggId ?? null) === b.id) }))
+    .filter((b) => b.omrader.length > 0)
   const kandidatGrupper = [...new Set(kandidater.map((k) => omradeNavn(k.omradeId)))].sort((x, y) => x.localeCompare(y, 'nb'))
 
   return (
@@ -86,10 +92,14 @@ export default function Detaljpanel(props: Props) {
         <label>Område</label>
         <select value={a.omradeId ?? ''} onChange={(e) => onEndre({ omradeId: e.target.value || null })}>
           <option value="">– Uten område –</option>
-          {plan.omrader.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.navn}
-            </option>
+          {byggGrupper.map((b) => (
+            <optgroup key={b.id ?? '__uten'} label={b.navn}>
+              {b.omrader.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.navn}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </div>

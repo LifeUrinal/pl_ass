@@ -1,4 +1,4 @@
-import type { Aktivitet, Fremdriftsplan, GrupperEtter, Visning } from './types'
+import type { Aktivitet, Fremdriftsplan, GrupperEtter, Omrade, Visning } from './types'
 import { AKTIVITET_TYPER } from './types'
 import { antallDager, leggTilDager, tilDag } from './dato'
 
@@ -119,25 +119,85 @@ export function filtrer(aktiviteter: Aktivitet[], visning: Visning, sok: string,
   })
 }
 
+export type GruppeFelt = 'bygg' | 'omrade' | 'firma' | 'type' | 'ingen'
+
 export interface Gruppe {
-  id: string
+  /** Unik nøkkel (brukes til å huske åpne/lukkede grupper) */
+  nokkel: string
+  /** Id-en til bygget/området/firmaet/typen gruppen står for, eller null for «Uten …» */
+  id: string | null
+  felt: GruppeFelt
   navn: string
   aktiviteter: Aktivitet[]
+  under?: Gruppe[]
+}
+
+/** Hvilket bygg en aktivitet hører til (via området). */
+export function byggIdFor(a: Aktivitet, plan: Fremdriftsplan): string | null {
+  return plan.omrader.find((o) => o.id === a.omradeId)?.byggId ?? null
+}
+
+/** Områdenavn med bygget foran, f.eks. «Bygg A – Kontor · Plan 1». */
+export function omradeFullNavn(o: Omrade, plan: Fremdriftsplan): string {
+  const b = plan.bygg.find((x) => x.id === o.byggId)
+  return b ? `${b.navn} · ${o.navn}` : o.navn
+}
+
+const UTEN: Record<GruppeFelt, string> = {
+  bygg: 'Uten bygg',
+  omrade: 'Uten område',
+  firma: 'Uten firma',
+  type: 'Uten type',
+  ingen: '',
+}
+
+function grupperEttFelt(
+  plan: Fremdriftsplan,
+  aktiviteter: Aktivitet[],
+  felt: Exclude<GruppeFelt, 'ingen'>,
+  prefiks: string,
+  kilder?: { id: string; navn: string }[],
+): Gruppe[] {
+  const k =
+    kilder ??
+    (felt === 'bygg'
+      ? plan.bygg
+      : felt === 'omrade'
+        ? plan.omrader.map((o) => ({ id: o.id, navn: omradeFullNavn(o, plan) }))
+        : felt === 'firma'
+          ? plan.firmaer
+          : AKTIVITET_TYPER)
+  const verdi = (a: Aktivitet) =>
+    felt === 'bygg' ? byggIdFor(a, plan) : felt === 'omrade' ? a.omradeId : felt === 'firma' ? a.firmaId : a.type
+  const ut: Gruppe[] = k.map((x) => ({
+    nokkel: `${prefiks}${felt}:${x.id}`,
+    id: x.id,
+    felt,
+    navn: x.navn,
+    aktiviteter: aktiviteter.filter((a) => verdi(a) === x.id),
+  }))
+  const kjente = new Set(k.map((x) => x.id))
+  const uten = aktiviteter.filter((a) => !kjente.has(verdi(a) ?? ''))
+  if (uten.length) ut.push({ nokkel: `${prefiks}${felt}:__uten`, id: null, felt, navn: UTEN[felt], aktiviteter: uten })
+  return ut.filter((g) => g.aktiviteter.length > 0)
 }
 
 export function grupper(plan: Fremdriftsplan, aktiviteter: Aktivitet[], etter: GrupperEtter): Gruppe[] {
   const sortert = [...aktiviteter].sort((a, b) => a.start.localeCompare(b.start) || a.slutt.localeCompare(b.slutt))
-  if (etter === 'ingen') return [{ id: 'alle', navn: 'Alle aktiviteter', aktiviteter: sortert }]
+  if (etter === 'ingen') return [{ nokkel: 'alle', id: null, felt: 'ingen', navn: 'Alle aktiviteter', aktiviteter: sortert }]
+  if (etter !== 'bygg-omrade') return grupperEttFelt(plan, sortert, etter, '')
 
-  const kilder: { id: string; navn: string }[] =
-    etter === 'omrade' ? plan.omrader : etter === 'firma' ? plan.firmaer : AKTIVITET_TYPER
-  const nokkel = (a: Aktivitet) => (etter === 'omrade' ? a.omradeId : etter === 'firma' ? a.firmaId : a.type)
-
-  const ut: Gruppe[] = kilder.map((k) => ({ id: k.id, navn: k.navn, aktiviteter: sortert.filter((a) => nokkel(a) === k.id) }))
-  const kjente = new Set(kilder.map((k) => k.id))
-  const uten = sortert.filter((a) => !kjente.has(nokkel(a) ?? ''))
-  if (uten.length) ut.push({ id: '__uten', navn: etter === 'omrade' ? 'Uten område' : 'Uten firma', aktiviteter: uten })
-  return ut.filter((g) => g.aktiviteter.length > 0)
+  // To nivåer: bygg → områdene i bygget
+  return grupperEttFelt(plan, sortert, 'bygg', '').map((b) => ({
+    ...b,
+    under: grupperEttFelt(
+      plan,
+      b.aktiviteter,
+      'omrade',
+      b.nokkel + '/',
+      plan.omrader.filter((o) => (o.byggId ?? null) === b.id),
+    ),
+  }))
 }
 
 /** Vektet fremdrift (etter varighet) for en liste aktiviteter. */

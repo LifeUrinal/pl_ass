@@ -4,14 +4,17 @@ import { AKTIVITET_TYPER } from './types'
 import { antallDager, arbeidsdager, fraDag } from './dato'
 import { FIRMA_FARGER, nyId } from './logikk'
 
-const KOLONNER = ['Nr', 'Område', 'Firma', 'Type', 'Aktivitet', 'Start', 'Slutt', 'Dager', 'Arbeidsdager', 'Fremdrift %', 'Avhenger av (Nr)', 'Notat']
+const KOLONNER = ['Nr', 'Bygg', 'Område', 'Firma', 'Type', 'Aktivitet', 'Start', 'Slutt', 'Dager', 'Arbeidsdager', 'Fremdrift %', 'Avhenger av (Nr)', 'Notat']
 
 /** Eksporterer planen til et regneark. Samme format kan leses inn igjen. */
 export function eksporterExcel(plan: Fremdriftsplan) {
   const nr = new Map(plan.aktiviteter.map((a, i) => [a.id, i + 1]))
-  const rader = plan.aktiviteter.map((a) => [
+  const rader = plan.aktiviteter.map((a) => {
+    const omrade = plan.omrader.find((o) => o.id === a.omradeId)
+    return [
     nr.get(a.id),
-    plan.omrader.find((o) => o.id === a.omradeId)?.navn ?? '',
+    plan.bygg.find((b) => b.id === omrade?.byggId)?.navn ?? '',
+    omrade?.navn ?? '',
     plan.firmaer.find((f) => f.id === a.firmaId)?.navn ?? '',
     AKTIVITET_TYPER.find((t) => t.id === a.type)?.navn ?? a.type,
     a.navn,
@@ -22,9 +25,10 @@ export function eksporterExcel(plan: Fremdriftsplan) {
     a.fremdrift,
     a.avhengerAv.map((id) => nr.get(id)).filter(Boolean).join(', '),
     a.notat ?? '',
-  ])
+    ]
+  })
   const ws = XLSX.utils.aoa_to_sheet([KOLONNER, ...rader])
-  ws['!cols'] = [6, 22, 20, 14, 36, 12, 12, 7, 12, 11, 16, 30].map((wch) => ({ wch }))
+  ws['!cols'] = [6, 20, 18, 20, 14, 36, 12, 12, 7, 12, 11, 16, 30].map((wch) => ({ wch }))
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Fremdriftsplan')
   XLSX.writeFile(wb, `Fremdriftsplan - ${(plan.prosjektnavn || 'prosjekt').replace(/[\\/:*?"<>|]/g, '')}.xlsx`)
@@ -102,7 +106,8 @@ export async function importerExcel(fil: File, prosjektnavn: string): Promise<{ 
   const h = matrise[hodeIdx].map(String)
   const k = {
     nr: finnKolonne(h, 'Nr', 'ID', 'Løpenr'),
-    omrade: finnKolonne(h, 'Område', 'Sone', 'Lokasjon', 'Bygg'),
+    bygg: finnKolonne(h, 'Bygg', 'Bygning', 'Byggnr'),
+    omrade: finnKolonne(h, 'Område', 'Sone', 'Lokasjon', 'Etasje'),
     firma: finnKolonne(h, 'Firma', 'UE', 'Underentreprenør', 'Entreprenør', 'Ansvarlig'),
     type: finnKolonne(h, 'Type', 'Fase', 'Kategori'),
     navn: finnKolonne(h, 'Aktivitet', 'Oppgave', 'Beskrivelse', 'Navn'),
@@ -114,7 +119,7 @@ export async function importerExcel(fil: File, prosjektnavn: string): Promise<{ 
     notat: finnKolonne(h, 'Notat', 'Kommentar', 'Merknad'),
   }
 
-  const plan: Fremdriftsplan = { prosjektnavn, omrader: [], firmaer: [], aktiviteter: [] }
+  const plan: Fremdriftsplan = { prosjektnavn, bygg: [], omrader: [], firmaer: [], aktiviteter: [] }
   const advarsler: string[] = []
   const nrTilId = new Map<string, string>()
   const navnTilId = new Map<string, string>()
@@ -136,13 +141,23 @@ export async function importerExcel(fil: File, prosjektnavn: string): Promise<{ 
     }
     if (slutt < start) slutt = start
 
+    const byggNavn = String(celle(rad, k.bygg) ?? '').trim()
+    let byggId: string | null = null
+    if (byggNavn) {
+      byggId = plan.bygg.find((b) => b.navn === byggNavn)?.id ?? null
+      if (!byggId) {
+        byggId = nyId()
+        plan.bygg.push({ id: byggId, navn: byggNavn })
+      }
+    }
+    // samme områdenavn kan finnes i flere bygg («Plan 1»), så området identifiseres av bygg + navn
     const omradeNavn = String(celle(rad, k.omrade) ?? '').trim()
     let omradeId: string | null = null
     if (omradeNavn) {
-      omradeId = plan.omrader.find((o) => o.navn === omradeNavn)?.id ?? null
+      omradeId = plan.omrader.find((o) => o.navn === omradeNavn && o.byggId === byggId)?.id ?? null
       if (!omradeId) {
         omradeId = nyId()
-        plan.omrader.push({ id: omradeId, navn: omradeNavn })
+        plan.omrader.push({ id: omradeId, navn: omradeNavn, byggId })
       }
     }
     const firmaNavn = String(celle(rad, k.firma) ?? '').trim()
