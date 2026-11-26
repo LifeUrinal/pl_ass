@@ -86,24 +86,65 @@ export function helligdag(dag: number): string | undefined {
   return helligdagerForAr(new Date(dag * MS_PER_DAG).getUTCFullYear()).get(dag)
 }
 
-/** Fridag = lørdag, søndag eller helligdag. */
-export function erFridag(dag: number): boolean {
-  return erHelg(dag) || helligdag(dag) !== undefined
+// --- Valgfrie fridager (per prosjekt) -----------------------------------------
+
+export interface FridagValg {
+  /** Fellesferie: tre uker fra og med uke `fellesferieStartUke` */
+  fellesferie: boolean
+  fellesferieStartUke: number
+  /** Julaften (24.12) og nyttårsaften (31.12) */
+  julOgNyttarsaften: boolean
 }
 
-/** Antall arbeidsdager (man–fre, minus norske helligdager) i perioden, begge dager medregnet. */
-export function arbeidsdager(start: string, slutt: string): number {
+export const STANDARD_FRIDAGER: FridagValg = { fellesferie: false, fellesferieStartUke: 28, julOgNyttarsaften: false }
+export const FELLESFERIE_UKER = 3
+
+/**
+ * Navnet på fridagen (helligdag eller valgt fridag), eller undefined for en vanlig dag.
+ * Helger regnes ikke med her – de håndteres for seg.
+ */
+export function fridag(dag: number, valg: FridagValg = STANDARD_FRIDAGER): string | undefined {
+  const h = helligdag(dag)
+  if (h) return h
+  if (valg.julOgNyttarsaften) {
+    const { mnd, dag: dd } = delerAvDag(dag)
+    if (mnd === 11 && dd === 24) return 'Julaften'
+    if (mnd === 11 && dd === 31) return 'Nyttårsaften'
+  }
+  if (valg.fellesferie) {
+    const { mnd } = delerAvDag(dag)
+    const uke = ukenummer(dag)
+    if (mnd >= 5 && mnd <= 7 && uke >= valg.fellesferieStartUke && uke < valg.fellesferieStartUke + FELLESFERIE_UKER) return 'Fellesferie'
+  }
+  return undefined
+}
+
+/** Fridag = lørdag, søndag, helligdag eller valgt fridag. */
+export function erFridag(dag: number, valg: FridagValg = STANDARD_FRIDAGER): boolean {
+  return erHelg(dag) || fridag(dag, valg) !== undefined
+}
+
+/** Antall arbeidsdager (man–fre, minus helligdager og valgte fridager) i perioden, begge dager medregnet. */
+export function arbeidsdager(start: string, slutt: string, valg: FridagValg = STANDARD_FRIDAGER): number {
   let n = 0
-  for (let d = tilDag(start); d <= tilDag(slutt); d++) if (!erFridag(d)) n++
+  for (let d = tilDag(start); d <= tilDag(slutt); d++) if (!erFridag(d, valg)) n++
   return n
 }
 
-/** Helligdager som faller på en hverdag i perioden (de som faktisk «koster» en arbeidsdag). */
-export function helligdagerIPeriode(start: string, slutt: string): { dato: string; navn: string }[] {
-  const ut: { dato: string; navn: string }[] = []
+/**
+ * Fridager som faller på en hverdag i perioden (de som faktisk «koster» en arbeidsdag),
+ * slått sammen per navn – f.eks. «Fellesferie» med 15 dager.
+ */
+export function fridagerIPeriode(start: string, slutt: string, valg: FridagValg = STANDARD_FRIDAGER): { navn: string; fra: string; til: string; antall: number }[] {
+  const ut: { navn: string; fra: string; til: string; antall: number }[] = []
   for (let d = tilDag(start); d <= tilDag(slutt); d++) {
-    const navn = helligdag(d)
-    if (navn && !erHelg(d)) ut.push({ dato: fraDag(d), navn })
+    const navn = fridag(d, valg)
+    if (!navn || erHelg(d)) continue
+    const siste = ut[ut.length - 1]
+    if (siste && siste.navn === navn && tilDag(siste.til) >= d - 4) {
+      siste.til = fraDag(d)
+      siste.antall++
+    } else ut.push({ navn, fra: fraDag(d), til: fraDag(d), antall: 1 })
   }
   return ut
 }

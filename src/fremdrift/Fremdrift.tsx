@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Aktivitet, FargeEtter, Fremdriftsplan, GrupperEtter, Visning, Zoom } from './types'
 import { AKTIVITET_TYPER } from './types'
-import { iDag, leggTilDager } from './dato'
+import { FELLESFERIE_UKER, iDag, leggTilDager } from './dato'
 import {
   OMRADE_FARGER,
   byggIdFor,
@@ -175,6 +175,17 @@ export default function Fremdrift() {
 
   const valgt = plan?.aktiviteter.find((a) => a.id === valgtId) ?? null
 
+  // Lukk åpne nedtrekksmenyer ved klikk utenfor
+  useEffect(() => {
+    function klikk(e: PointerEvent) {
+      document.querySelectorAll('details.fd-meny[open]').forEach((d) => {
+        if (!d.contains(e.target as Node)) d.removeAttribute('open')
+      })
+    }
+    document.addEventListener('pointerdown', klikk)
+    return () => document.removeEventListener('pointerdown', klikk)
+  }, [])
+
   // --- Hurtigtaster ---------------------------------------------------------
   useEffect(() => {
     function tast(e: KeyboardEvent) {
@@ -268,7 +279,7 @@ export default function Fremdrift() {
     try {
       const { plan: ny, advarsler } = await importerExcel(fil, plan!.prosjektnavn)
       if (!confirm(`Fant ${ny.aktiviteter.length} aktiviteter, ${ny.bygg.length} bygg, ${ny.omrader.length} områder og ${ny.firmaer.length} firmaer.\n\nDette erstatter planen du har nå (du kan angre). Fortsette?`)) return
-      endre(() => ny)
+      endre(() => ({ ...ny, fridager: plan!.fridager }))
       setValgtId(null)
       if (advarsler.length) alert('Importert, med merknader:\n\n' + advarsler.slice(0, 15).join('\n') + (advarsler.length > 15 ? `\n… og ${advarsler.length - 15} til` : ''))
     } catch (e) {
@@ -331,6 +342,42 @@ export default function Fremdrift() {
           <button className="btn-secondary" onClick={() => setVisRegister(true)}>
             Bygg og områder
           </button>
+          <details className="fd-meny">
+            <summary className="btn-secondary" title="Hvilke dager som ikke regnes som arbeidsdager">
+              Fridager ▾
+            </summary>
+            <div className="fd-meny-innhold fd-fridag-meny">
+              <div className="muted small">Helger og offentlige helligdager er alltid fridager. I tillegg:</div>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={plan.fridager.julOgNyttarsaften}
+                  onChange={(e) => endre((p) => ({ ...p, fridager: { ...p.fridager, julOgNyttarsaften: e.target.checked } }))}
+                />
+                Julaften og nyttårsaften
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={plan.fridager.fellesferie}
+                  onChange={(e) => endre((p) => ({ ...p, fridager: { ...p.fridager, fellesferie: e.target.checked } }))}
+                />
+                Fellesferie, uke
+                <select
+                  value={plan.fridager.fellesferieStartUke}
+                  disabled={!plan.fridager.fellesferie}
+                  onChange={(e) => endre((p) => ({ ...p, fridager: { ...p.fridager, fellesferieStartUke: Number(e.target.value) } }))}
+                >
+                  {[26, 27, 28, 29, 30].map((u) => (
+                    <option key={u} value={u}>
+                      {u}–{u + FELLESFERIE_UKER - 1}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="muted small">Gjelder hele prosjektet og påvirker antall arbeidsdager.</div>
+            </div>
+          </details>
           <details className="fd-meny" ref={menyRef}>
             <summary className="btn-secondary">Fil ▾</summary>
             <div className="fd-meny-innhold">
@@ -481,6 +528,7 @@ export default function Fremdrift() {
           onNyIGruppe={(felt, id) => nyAktivitet(felt, id)}
           iDagSignal={iDagSignal}
           piler={piler}
+          fridagValg={plan.fridager}
         />
         {valgt && (
           <Detaljpanel

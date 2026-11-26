@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Aktivitet, AktivitetType, Fremdriftsplan } from './types'
 import { AKTIVITET_TYPER } from './types'
-import { antallDager, arbeidsdager, helligdagerIPeriode, iDag, kortDato, leggTilDager } from './dato'
+import { antallDager, arbeidsdager, fridagerIPeriode, iDag, kortDato, leggTilDager } from './dato'
 import { STATUS_TEKST, etterfolgere, konflikterFor, lagerSirkel, omradeFullNavn, statusFor } from './logikk'
 
 interface Props {
@@ -24,7 +24,7 @@ export default function Detaljpanel(props: Props) {
   const egneKonflikter = konflikterFor(a, map)
   const blokkerer = etterfolgere(a.id, plan.aktiviteter)
   const blokkererIKonflikt = blokkerer.filter((b) => b.start <= a.slutt)
-  const fridager = helligdagerIPeriode(a.start, a.slutt)
+  const fridager = fridagerIPeriode(a.start, a.slutt, plan.fridager)
   const status = statusFor(a, egneKonflikter.length > 0, iDag())
   const navnRef = useRef<HTMLInputElement>(null)
   const [visLeggTil, setVisLeggTil] = useState(false)
@@ -150,14 +150,23 @@ export default function Detaljpanel(props: Props) {
           </button>
         </div>
       </div>
-      <div className="fd-felt">
+      <div className="fd-felt fd-felt-topp">
         <label>Varighet</label>
         <div>
-          <strong>{antallDager(a.start, a.slutt)} dager</strong> <span className="muted">{arbeidsdager(a.start, a.slutt)} arbeidsdager</span>
+          <strong>{antallDager(a.start, a.slutt)} dager</strong> <span className="muted">{arbeidsdager(a.start, a.slutt, plan.fridager)} arbeidsdager</span>
           {fridager.length > 0 && (
-            <div className="muted small" title={fridager.map((h) => `${kortDato(h.dato)}: ${h.navn}`).join('\n')}>
-              Helligdager trukket fra: {fridager.map((h) => `${h.navn} (${kortDato(h.dato)})`).join(', ')}
-            </div>
+            <details className="fd-fridager muted small" open={fridager.length <= 2}>
+              <summary>
+                {fridager.reduce((n, f) => n + f.antall, 0)} fridager trukket fra
+              </summary>
+              <ul>
+                {fridager.map((f) => (
+                  <li key={f.fra}>
+                    {f.navn} – {f.antall > 1 ? `${kortDato(f.fra)}–${kortDato(f.til)} (${f.antall} dager)` : kortDato(f.fra)}
+                  </li>
+                ))}
+              </ul>
+            </details>
           )}
         </div>
       </div>

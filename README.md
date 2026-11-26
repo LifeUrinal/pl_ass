@@ -24,7 +24,9 @@ sluttdato, fremdrift i prosent, notat og eventuelle avhengigheter
 - **Arbeidsdager** regnes som mandag–fredag minus norske helligdager (nyttårsdag,
   skjærtorsdag, langfredag, 2. påskedag, 1. mai, 17. mai, Kristi himmelfartsdag,
   2. pinsedag, 1. og 2. juledag – påskeavhengige dager beregnes for hvert år).
-  Detaljpanelet viser hvilke helligdager som er trukket fra.
+  Under **Fridager** kan du i tillegg velge **julaften og nyttårsaften** og
+  **fellesferie** (tre uker, standard uke 28–30) per prosjekt. Detaljpanelet
+  viser hvilke fridager som er trukket fra, og fridagene markeres i tidslinjen.
 - **Dra** en stolpe for å flytte den, dra kantene for å endre lengde.
 - **Avhengigheter**: dra prikken til høyre på en stolpe over en annen aktivitet,
   eller legg dem til i detaljpanelet. Appen hindrer sirkulære avhengigheter.

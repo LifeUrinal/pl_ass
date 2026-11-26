@@ -1,6 +1,6 @@
 import { get, set } from 'idb-keyval'
 import type { Aktivitet, AktivitetType, Fremdriftsplan } from './types'
-import { fraDag, iDag, tilDag, ukedag } from './dato'
+import { fraDag, iDag, tilDag, ukedag, STANDARD_FRIDAGER } from './dato'
 
 const KEY = 'fremdrift:plan:v1'
 
@@ -14,6 +14,7 @@ export function normaliserPlan(p: Fremdriftsplan): Fremdriftsplan {
   return {
     ...p,
     bygg: p.bygg ?? [],
+    fridager: { ...STANDARD_FRIDAGER, ...p.fridager },
     omrader: p.omrader.map((o) => ({ ...o, byggId: o.byggId ?? null })),
   }
 }
@@ -22,7 +23,7 @@ export async function lagrePlan(plan: Fremdriftsplan): Promise<void> {
   await set(KEY, plan)
 }
 
-export const TOM_PLAN: Fremdriftsplan = { prosjektnavn: 'Nytt prosjekt', bygg: [], omrader: [], firmaer: [], aktiviteter: [] }
+export const TOM_PLAN: Fremdriftsplan = { prosjektnavn: 'Nytt prosjekt', bygg: [], omrader: [], firmaer: [], aktiviteter: [], fridager: STANDARD_FRIDAGER }
 
 /** Eksempelplan, lagt rundt dagens dato slik at noe er ferdig, noe pågår og noe kommer. */
 export function eksempelplan(): Fremdriftsplan {
@@ -123,5 +124,5 @@ export function eksempelplan(): Fremdriftsplan {
   const ferdig = a('Funksjonstest tekniske anlegg', 'o3', 'f6', 'testing', 54, 5, 0, [innreg, trykk, tavle])
   a('Overlevering til byggherre', 'o1', 'f6', 'overlevering', 64, 1, 0, [bef1, bef2, ferdig])
 
-  return { prosjektnavn: 'Kontorbygg Sentrum', bygg, omrader, firmaer, aktiviteter: akt }
+  return { prosjektnavn: 'Kontorbygg Sentrum', bygg, omrader, firmaer, aktiviteter: akt, fridager: STANDARD_FRIDAGER }
 }

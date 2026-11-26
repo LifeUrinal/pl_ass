@@ -1,6 +1,8 @@
 // Datamodell for fremdriftsplanen (Gantt).
 // Datoer lagres som ISO-strenger 'YYYY-MM-DD' (sluttdato er inklusiv).
 
+import type { FridagValg } from './dato'
+
 export type AktivitetType = 'prosjektering' | 'utforelse' | 'testing' | 'befaring' | 'overlevering'
 
 export const AKTIVITET_TYPER: { id: AktivitetType; navn: string; farge: string }[] = [
@@ -47,6 +49,8 @@ export interface Fremdriftsplan {
   omrader: Omrade[]
   firmaer: Firma[]
   aktiviteter: Aktivitet[]
+  /** Valgfrie fridager i tillegg til helger og helligdager */
+  fridager: FridagValg
 }
 
 export type GrupperEtter = 'bygg-omrade' | 'bygg' | 'omrade' | 'firma' | 'type' | 'ingen'

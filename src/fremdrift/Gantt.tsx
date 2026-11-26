@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as RPointerEvent } from 'react'
 import type { Aktivitet, Firma, Zoom } from './types'
+import type { FridagValg } from './dato'
 import {
   MANEDER,
   MANEDER_KORT,
@@ -11,7 +12,7 @@ import {
   leggTilDager,
   nesteManed,
   tilDag,
-  helligdag,
+  fridag,
   ukedag,
   ukenummer,
 } from './dato'
@@ -54,6 +55,7 @@ interface Props {
   onNyIGruppe: (felt: GruppeFelt, id: string | null) => void
   iDagSignal: number
   piler: 'alle' | 'valgt' | 'ingen'
+  fridagValg: FridagValg
 }
 
 interface Drag {
@@ -264,11 +266,11 @@ export default function Gantt(props: Props) {
   return (
     <div className="fd-gantt" ref={scrollRef} onScroll={sporMidt}>
       <div className="fd-innhold" style={{ width: VENSTRE_B + bredde }}>
-        <Hode fraD={fraD} tilD={tilD} px={px} zoom={zoom} idagDag={idagDag} antall={antallAkt} />
+        <Hode fraD={fraD} tilD={tilD} px={px} zoom={zoom} idagDag={idagDag} antall={antallAkt} valg={props.fridagValg} />
 
         <div className="fd-kropp" style={{ height: Math.max(hoyde, 200) }}>
           {/* Bakgrunn: helger, månedsskiller og i-dag-linje */}
-          <Bakgrunn fraD={fraD} tilD={tilD} px={px} zoom={zoom} hoyde={Math.max(hoyde, 200)} idagDag={idagDag} />
+          <Bakgrunn fraD={fraD} tilD={tilD} px={px} zoom={zoom} hoyde={Math.max(hoyde, 200)} idagDag={idagDag} valg={props.fridagValg} />
 
           {rader.map((r, i) =>
             r.type === 'gruppe' ? (
@@ -462,7 +464,7 @@ function AktivitetRad(p: RadProps) {
 
 // ---------------------------------------------------------------------------
 
-function Hode({ fraD, tilD, px, zoom, idagDag, antall }: { fraD: number; tilD: number; px: number; zoom: Zoom; idagDag: number; antall: number }) {
+function Hode({ fraD, tilD, px, zoom, idagDag, antall, valg }: { fraD: number; tilD: number; px: number; zoom: Zoom; idagDag: number; antall: number; valg: FridagValg }) {
   const ovre: { x: number; w: number; tekst: string }[] = []
   const nedre: { x: number; w: number; tekst: string; helg?: boolean; tittel?: string }[] = []
 
@@ -489,7 +491,7 @@ function Hode({ fraD, tilD, px, zoom, idagDag, antall }: { fraD: number; tilD: n
     }
     if (zoom === 'dag') {
       for (let d = fraD; d <= tilD; d++) {
-        const hd = helligdag(d)
+        const hd = fridag(d, valg)
         nedre.push({ x: (d - fraD) * px, w: px, tekst: String(delerAvDag(d).dag), helg: ukedag(d) >= 5 || !!hd, tittel: hd })
       }
     } else {
@@ -526,7 +528,7 @@ function Hode({ fraD, tilD, px, zoom, idagDag, antall }: { fraD: number; tilD: n
   )
 }
 
-function Bakgrunn({ fraD, tilD, px, zoom, hoyde, idagDag }: { fraD: number; tilD: number; px: number; zoom: Zoom; hoyde: number; idagDag: number }) {
+function Bakgrunn({ fraD, tilD, px, zoom, hoyde, idagDag, valg }: { fraD: number; tilD: number; px: number; zoom: Zoom; hoyde: number; idagDag: number; valg: FridagValg }) {
   const linjer: number[] = []
   for (let d = forsteIManed(fraD); d <= tilD; d = nesteManed(d)) if (d > fraD) linjer.push((d - fraD) * px)
   // fraD er alltid en mandag i dag-/ukevisning, så helgestripene kan tegnes som et gjentagende mønster
@@ -534,9 +536,9 @@ function Bakgrunn({ fraD, tilD, px, zoom, hoyde, idagDag }: { fraD: number; tilD
     zoom === 'maned'
       ? undefined
       : `repeating-linear-gradient(90deg, transparent 0 ${5 * px}px, var(--fd-helg) ${5 * px}px ${7 * px}px)`
-  // helligdager som faller på hverdager tegnes som egne striper (helgene er allerede skyggelagt)
+  // fridager som faller på hverdager tegnes som egne striper (helgene er allerede skyggelagt i dag-/ukevisning)
   const helligdager: number[] = []
-  if (zoom !== 'maned') for (let d = fraD; d <= tilD; d++) if (ukedag(d) < 5 && helligdag(d)) helligdager.push(d)
+  for (let d = fraD; d <= tilD; d++) if ((zoom === 'maned' || ukedag(d) < 5) && fridag(d, valg)) helligdager.push(d)
   return (
     <div className="fd-bakgrunn" style={{ left: VENSTRE_B, width: (tilD - fraD + 1) * px, height: hoyde, backgroundImage: helg }}>
       {helligdager.map((d) => (

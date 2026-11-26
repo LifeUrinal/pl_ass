@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx'
 import type { Aktivitet, AktivitetType, Fremdriftsplan } from './types'
 import { AKTIVITET_TYPER } from './types'
-import { antallDager, arbeidsdager, fraDag } from './dato'
+import { STANDARD_FRIDAGER, antallDager, arbeidsdager, fraDag } from './dato'
 import { FIRMA_FARGER, nyId } from './logikk'
 
 const KOLONNER = ['Nr', 'Bygg', 'Område', 'Firma', 'Type', 'Aktivitet', 'Start', 'Slutt', 'Dager', 'Arbeidsdager', 'Fremdrift %', 'Avhenger av (Nr)', 'Notat']
@@ -21,7 +21,7 @@ export function eksporterExcel(plan: Fremdriftsplan) {
     a.start,
     a.slutt,
     antallDager(a.start, a.slutt),
-    arbeidsdager(a.start, a.slutt),
+    arbeidsdager(a.start, a.slutt, plan.fridager),
     a.fremdrift,
     a.avhengerAv.map((id) => nr.get(id)).filter(Boolean).join(', '),
     a.notat ?? '',
@@ -119,7 +119,7 @@ export async function importerExcel(fil: File, prosjektnavn: string): Promise<{ 
     notat: finnKolonne(h, 'Notat', 'Kommentar', 'Merknad'),
   }
 
-  const plan: Fremdriftsplan = { prosjektnavn, bygg: [], omrader: [], firmaer: [], aktiviteter: [] }
+  const plan: Fremdriftsplan = { prosjektnavn, bygg: [], omrader: [], firmaer: [], aktiviteter: [], fridager: STANDARD_FRIDAGER }
   const advarsler: string[] = []
   const nrTilId = new Map<string, string>()
   const navnTilId = new Map<string, string>()
